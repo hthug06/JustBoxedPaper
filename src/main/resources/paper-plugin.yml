@@ -5,4 +5,5 @@ description: A Boxed plugin for paper servers
 website: https://github.com/hthug06
 version: '1.0'
 main: fr.ht06.justBoxed.JustBoxed
+bootstrapper: fr.ht06.justBoxed.Bootstrap
 api-version: '1.21'
