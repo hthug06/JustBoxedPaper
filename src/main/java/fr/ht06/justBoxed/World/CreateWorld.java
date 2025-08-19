@@ -1,10 +1,12 @@
 package fr.ht06.justBoxed.World;
 
+import fr.ht06.justBoxed.BoxedWorld.BoxedWorld;
 import fr.ht06.justBoxed.JustBoxed;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
+import org.bukkit.entity.Player;
 import org.bukkit.generator.structure.StructureType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.BiomeSearchResult;
@@ -17,6 +19,7 @@ public class CreateWorld {
 
     private final Random rand = new Random();
     String worldName;
+    Player player;
     boolean structureFinded = false;
     boolean biomeFinded = false;
     boolean logFinded = false;
@@ -33,8 +36,9 @@ public class CreateWorld {
     /// - Search for the closest biome having trees
     /// - Search for a tree -> leave -> log <br>
     /// ### You now have the world with good coordinates that can be finished :)
-    public CreateWorld(String worldName) {
-        this.worldName = worldName;
+    public CreateWorld(String worldNameBefore, Player player) {
+        this.worldName = "boxed_world/" + worldNameBefore;
+        this.player = player;
 
         new BukkitRunnable() {
 
@@ -61,14 +65,17 @@ public class CreateWorld {
 
                 //Create the world
                 if (Bukkit.getWorld(worldName) == null) {
+                    Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Creating World", NamedTextColor.GOLD));
                     somethingHappen = true;
-                    createWorld(worldName);
+                    createWorld();
                     return;
                 }
 
 
+
                 //Launch the structure search (need strong hold so the player can finish the game)
                 if (Bukkit.getWorld(worldName) != null && !structureFinded) {
+                    Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Finding secret thing!", NamedTextColor.GOLD));
                     somethingHappen = true;
                     findStronghold();
                     return;
@@ -76,6 +83,7 @@ public class CreateWorld {
 
                 //Structure launch the Biome search
                 if (structureFinded && !biomeFinded) {
+                    Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Searching a good biome", NamedTextColor.GOLD));
                     somethingHappen = true;
                     findBiome();
                     return;
@@ -84,11 +92,17 @@ public class CreateWorld {
 
                 //search a log
                 if (biomeFinded && !logFinded) {
+                    Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Searching a good place for you to spawn", NamedTextColor.GOLD));
                     //if the biome containing wood is find, we can now search for a log
                     somethingHappen = true;
                     findLog();
                     return;
                 }
+
+                Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Everything done! Teleporting!", NamedTextColor.DARK_GREEN));
+
+                //Creating internal thing
+                JustBoxed.boxedWorldManager.addBox(new BoxedWorld(worldName));
 
                 cancel();
 
@@ -101,13 +115,10 @@ public class CreateWorld {
     }
 
     public Location getLocation() {
-        double x = logLocation.x();
-        double z = logLocation.z();
-        //later, iter -64 - 320 to find the log block and then re-iter to the highest block (to not spawn on top of a mountain)
-        return new Location(Bukkit.getWorld(worldName), logLocation.x(), Bukkit.getWorld(worldName).getHighestBlockYAt((int) x, (int) z), z);
+        return logLocation;
     }
 
-    private void createWorld(String worldName) {
+    private void createWorld() {
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -117,8 +128,10 @@ public class CreateWorld {
                             .createWorld();
                 } catch (IllegalStateException ignored) {
                 } //Because bukkit don't like async but it work :)
+
                 cancel();
                 somethingHappen = false;
+                Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("World created", NamedTextColor.GREEN));
             }
         }.runTaskAsynchronously(JustBoxed.getInstance());
     }
@@ -126,7 +139,6 @@ public class CreateWorld {
     private void findStronghold() {
         //This can never be null, because 'The first ring has 3 strongholds within 1,280–2,816 blocks of the origin (of the world).'
         World world = Bukkit.getWorld(worldName);
-        JustBoxed.getInstance().getComponentLogger().info(Component.text("Searching structure", NamedTextColor.RED));
         StructureSearchResult structureSearchResult = world.locateNearestStructure(world.getSpawnLocation().add(3000 * needRestart, 0, 3000 * needRestart)
                 , StructureType.STRONGHOLD, 2816, false);
 
@@ -136,6 +148,7 @@ public class CreateWorld {
             structureLocation = structureSearchResult.getLocation();
             structureFinded = true;
         }
+        Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Secret thing found", NamedTextColor.GREEN));
 
         somethingHappen = false;
     }
@@ -160,7 +173,8 @@ public class CreateWorld {
                     cancel();
                     return;
                 }
-                JustBoxed.getInstance().getComponentLogger().info(Component.text("Biome find hehe"));
+                Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("Biome Found", NamedTextColor.GREEN));
+
 
                 //else, this step is finished
                 biomeLocation = biomeSearch.getLocation();
@@ -204,6 +218,9 @@ public class CreateWorld {
             }
         }.runTaskAsynchronously(JustBoxed.getInstance());
 
+        Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("This place look nice for you, but we need further investigation...", NamedTextColor.YELLOW));
+
+
         //restart everything...
         if (needRestart == lastNeedRestart) {
             somethingHappen = false;
@@ -232,8 +249,9 @@ public class CreateWorld {
                             if (world.getBlockAt(currentLocation).getType() != Material.AIR) {
                                 if (world.getBlockAt(currentLocation).getType().name().toUpperCase().contains("LOG")) {
                                     logLocation = currentLocation;
-                                    JustBoxed.getInstance().getComponentLogger().info(Component.text("Log find"));
                                     logFinded = true;
+                                    Bukkit.getPlayer(player.getUniqueId()).sendActionBar(Component.text("This place is definitely nice for you !", NamedTextColor.GREEN));
+
 
                                     cancel();
                                     return;
